@@ -1,65 +1,128 @@
-import Image from "next/image";
+"use client"
+
+import { useState, useEffect } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { MessageSquare, LayoutDashboard, List, User } from "lucide-react";
+import { ChatTab } from "@/components/ChatTab";
+import { OverviewTab } from "@/components/OverviewTab";
+import { TransactionListTab } from "@/components/TransactionListTab";
+import { ProfileTab } from "@/components/ProfileTab";
+import { LoginPage } from "@/components/LoginPage";
 
 export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    const [activeTab, setActiveTab] = useState("overview");
+    const { data: session, status } = useSession();
+
+    useEffect(() => {
+        const savedTab = localStorage.getItem("activeTab");
+        if (savedTab && ["chat", "overview", "transactions", "profile"].includes(savedTab)) {
+            setActiveTab(savedTab);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (session) {
+            localStorage.setItem("activeTab", activeTab);
+        }
+    }, [activeTab, session]);
+
+    const handleLogout = async () => {
+        await signOut({ callbackUrl: '/' });
+        localStorage.removeItem("activeTab");
+    };
+
+    const handleTabChange = (tab: string) => {
+        setActiveTab(tab);
+    };
+
+    if (status === "loading") {
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-black animate-spin" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                    </div>
+                    <p className="text-gray-600">กำลังโหลด...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!session) {
+        return <LoginPage onLogin={() => {}} />;
+    }
+
+    return (
+        <div className="min-h-screen bg-white">
+            {/* Header */}
+            <div className="border-b border-gray-200">
+                <div className="px-6 py-4 flex items-center justify-between">
+                    <h1 className="text-black">รายรับ-รายจ่าย</h1>
+                    <div className="text-sm text-gray-500">
+                        {session.user?.name || session.user?.email}
+                    </div>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="pb-20">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                    <TabsContent value="chat" className="mt-0">
+                        <ChatTab />
+                    </TabsContent>
+                    <TabsContent value="overview" className="mt-0">
+                        <OverviewTab />
+                    </TabsContent>
+                    <TabsContent value="transactions" className="mt-0">
+                        <TransactionListTab />
+                    </TabsContent>
+                    <TabsContent value="profile" className="mt-0">
+                        <ProfileTab onLogout={handleLogout} />
+                    </TabsContent>
+                </Tabs>
+            </div>
+
+            {/* Bottom Navigation */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+                <div className="flex items-center justify-around px-2 py-3">
+                    <button
+                        onClick={() => handleTabChange("chat")}
+                        className={`flex flex-col items-center gap-1 px-3 py-2 transition-colors cursor-pointer ${activeTab === "chat" ? "text-black" : "text-gray-400"
+                            }`}
+                    >
+                        <MessageSquare className="w-5 h-5" />
+                        <span className="text-xs">Chat</span>
+                    </button>
+                    <button
+                        onClick={() => handleTabChange("overview")}
+                        className={`flex flex-col items-center gap-1 px-3 py-2 transition-colors cursor-pointer ${activeTab === "overview" ? "text-black" : "text-gray-400"
+                            }`}
+                    >
+                        <LayoutDashboard className="w-5 h-5" />
+                        <span className="text-xs">Overview</span>
+                    </button>
+                    <button
+                        onClick={() => handleTabChange("transactions")}
+                        className={`flex flex-col items-center gap-1 px-3 py-2 transition-colors cursor-pointer ${activeTab === "transactions" ? "text-black" : "text-gray-400"
+                            }`}
+                    >
+                        <List className="w-5 h-5" />
+                        <span className="text-xs">Transactions</span>
+                    </button>
+                    <button
+                        onClick={() => handleTabChange("profile")}
+                        className={`flex flex-col items-center gap-1 px-3 py-2 transition-colors cursor-pointer ${activeTab === "profile" ? "text-black" : "text-gray-400"
+                            }`}
+                    >
+                        <User className="w-5 h-5" />
+                        <span className="text-xs">Profile</span>
+                    </button>
+                </div>
+            </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+    );
 }
