@@ -106,18 +106,16 @@ export function ChatTab() {
                 }
             }
 
-            // อัพเดทข้อความชั่วคราว
             if (interimTranscript) {
                 setInterimText(interimTranscript);
             }
 
-            // เมื่อมีข้อความสุดท้าย ให้เพิ่มเข้าไปใน inputValue
             if (finalTranscript) {
                 setInputValue(prev => {
                     const newValue = prev ? `${prev} ${finalTranscript}` : finalTranscript;
                     return newValue.trim();
                 });
-                setInterimText(""); // ล้างข้อความชั่วคราว
+                setInterimText("");
             }
         };
 
@@ -132,8 +130,6 @@ export function ChatTab() {
         };
 
         recognition.onend = () => {
-            // ไม่ต้องทำอะไรเมื่อจบ เพราะเราต้องการให้ผู้ใช้กดหยุดเอง
-            // ถ้าเกิดการหยุดโดยไม่ตั้งใจ (เช่น error) ให้ reset state
             if (isListening) {
                 console.log('Speech recognition ended unexpectedly');
                 setIsListening(false);
@@ -148,7 +144,7 @@ export function ChatTab() {
                 recognitionRef.current.stop();
             }
         };
-    }, []); // เอา inputValue ออกจาก dependencies
+    }, []);
 
     const startListening = () => {
         if (!speechSupported) {
@@ -175,7 +171,6 @@ export function ChatTab() {
                 recognitionRef.current.stop();
                 setIsListening(false);
                 
-                // ถ้ามีข้อความชั่วคราว ให้เพิ่มเข้าไปใน input
                 if (interimText.trim()) {
                     setInputValue(prev => {
                         const newValue = prev ? `${prev} ${interimText}` : interimText;
@@ -211,7 +206,6 @@ export function ChatTab() {
         setInterimText("");
     };
 
-    // แสดงข้อความรวมระหว่าง inputValue และ interimText
     const displayText = interimText ? `${inputValue} ${interimText}`.trim() : inputValue;
 
     return (
@@ -321,7 +315,7 @@ export function ChatTab() {
                             value={displayText}
                             onChange={(e) => {
                                 setInputValue(e.target.value);
-                                setInterimText(""); // ล้าง interim text เมื่อผู้ใช้พิมพ์เอง
+                                setInterimText("");
                             }}
                             onKeyPress={handleKeyPress}
                             placeholder={
