@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from 'next-auth/react'
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -221,31 +222,57 @@ const CreditCardSheet = ({ user }: { user: UserProfile | null }) => {
 
 export function ProfileTab({ onLogout }: ProfileTabProps) {
     const { user, isLoading, isUpdating, error, refetch, updateSettings } = useProfile();
+    const { data: session } = useSession();
     const { clearMessages } = useChat();
 
     const [savingsGoal, setSavingsGoal] = useState([0]);
-    const [selectedAvatar, setSelectedAvatar] = useState(PRESET_AVATARS[0]);
+    const [selectedAvatar, setSelectedAvatar] = useState("");
     const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
 
     const { value: avatarCooldown, start: startAvatarCooldown } = useCooldown(0);
     const { value: saveCooldown, start: startSaveCooldown } = useCooldown(0);
     const { value: clearCooldown, start: startClearCooldown } = useCooldown(0);
 
+    const getCurrentAvatar = () => {
+        return user?.avatar || session?.user?.image || PRESET_AVATARS[0];
+    };
+
+    const isSameAvatar = (avatar1: string, avatar2: string) => {
+        if (!avatar1 || !avatar2) return false;
+        const cleanAvatar1 = avatar1.split('?')[0];
+        const cleanAvatar2 = avatar2.split('?')[0];
+        return cleanAvatar1 === cleanAvatar2;
+    };
+
     useEffect(() => {
         if (user) {
             setSavingsGoal([user.savings_percentage ?? 20]);
-            setSelectedAvatar(user.avatar ?? PRESET_AVATARS[0]);
+            const currentAvatar = getCurrentAvatar();
+            setSelectedAvatar(currentAvatar);
         }
-    }, [user]);
+    }, [user, session]);
+
+    useEffect(() => {
+        if (isAvatarDialogOpen) {
+            const currentAvatar = getCurrentAvatar();
+            setSelectedAvatar(currentAvatar);
+            console.log("Dialog opened, current avatar:", currentAvatar);
+            console.log("Selected avatar set to:", currentAvatar);
+        }
+    }, [isAvatarDialogOpen]);
 
     const handleChangeAvatar = async () => {
         startAvatarCooldown(5);
         const success = await updateSettings({ avatar: selectedAvatar });
         if (success) {
             setIsAvatarDialogOpen(false);
+            try {
+                await refetch();
+            } catch (e) {
+                // ignore refetch errors
+            }
         }
     };
-
     const handleSave = async () => {
         startSaveCooldown(5);
         await updateSettings({ savings_percentage: savingsGoal[0] });
@@ -293,15 +320,13 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
 
                 <div className="flex items-center gap-4">
                     <Avatar className="w-20 h-20">
-                        {/* 11. ใช้ state ที่ sync กับ API */}
-                        <AvatarImage src={user?.avatar ?? selectedAvatar} alt="avatar" />
+                        <AvatarImage src={getCurrentAvatar()} alt="avatar" />
                         <AvatarFallback className="bg-indigo-500 text-white text-2xl">
                             {getAvatarFallback()}
                         </AvatarFallback>
                     </Avatar>
 
                     <div className="flex-1">
-                        {/* 12. แสดงข้อมูลจาก API */}
                         <div className="text-black mb-1">
                             {user ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() : '...'}
                         </div>
@@ -327,12 +352,39 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
                                     <DialogHeader>
                                         <DialogTitle>เปลี่ยนรูปโปรไฟล์</DialogTitle>
                                     </DialogHeader>
+
                                     <div className="grid grid-cols-4 gap-3">
+                                        {/* Google Session Avatar */}
+                                        <button
+                                            onClick={() => {
+                                                const googleAvatar = session?.user?.image || PRESET_AVATARS[0];
+                                                setSelectedAvatar(googleAvatar);
+                                            }}
+                                            className={`relative rounded-full overflow-hidden border-2 ${isSameAvatar(selectedAvatar, session?.user?.image || "")
+                                                ? "border-indigo-500"
+                                                : "border-transparent"
+                                                }`}
+                                        >
+                                            <img
+                                                src={session?.user?.image || PRESET_AVATARS[0]}
+                                                alt="google-avatar"
+                                                className="w-full h-full object-cover aspect-square"
+                                            />
+                                            {isSameAvatar(selectedAvatar, session?.user?.image || "") && (
+                                                <div className="absolute inset-0 bg-white-50 bg-opacity-40 flex items-center justify-center">
+                                                    <Check className="text-white w-6 h-6" />
+                                                </div>
+                                            )}
+                                        </button>
+
+                                        {/* Preset Avatars */}
                                         {PRESET_AVATARS.map((avatar, i) => (
                                             <button
                                                 key={i}
-                                                onClick={() => setSelectedAvatar(avatar)}
-                                                className={`relative rounded-full overflow-hidden border-2 ${selectedAvatar === avatar
+                                                onClick={() => {
+                                                    setSelectedAvatar(avatar);
+                                                }}
+                                                className={`relative rounded-full overflow-hidden border-2 ${isSameAvatar(selectedAvatar, avatar)
                                                     ? "border-indigo-500"
                                                     : "border-transparent"
                                                     }`}
@@ -340,14 +392,17 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
                                                 <img
                                                     src={avatar}
                                                     alt={`avatar-${i}`}
-                                                    className="rounded-full object-cover"
+                                                    className="w-full h-full object-cover aspect-square"
                                                 />
-                                                {selectedAvatar === avatar && (
-                                                    <Check className="absolute inset-0 text-white w-8 h-8 m-auto" />
+                                                {isSameAvatar(selectedAvatar, avatar) && (
+                                                    <div className="absolute inset-0 bg-white-50 bg-opacity-40 flex items-center justify-center">
+                                                        <Check className="text-white w-6 h-6" />
+                                                    </div>
                                                 )}
                                             </button>
                                         ))}
                                     </div>
+
                                     <DialogFooter>
                                         <Button
                                             onClick={handleChangeAvatar}
@@ -361,9 +416,8 @@ export function ProfileTab({ onLogout }: ProfileTabProps) {
                                 </DialogContent>
                             </Dialog>
 
-                            {/* 9. ปุ่มบัตรเครดิต */}
+                            {/* Credit Card Button */}
                             <CreditCardSheet user={user} />
-
                         </div>
                     </div>
                 </div>
